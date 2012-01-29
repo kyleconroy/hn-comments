@@ -1,4 +1,4 @@
-![Broken Down Slide](https://github.com/derferman/hn-decline/raw/master/slide.jpg)
+![Broken Down Slide](https://github.com/derferman/hn-comments/raw/master/slide.jpg)
 
 ## Question
 
@@ -21,10 +21,12 @@ Earlier stories have fewer comments. These comments are of higher quality.
 
 ## Conclusion
 
-After graphing comment score, comment length, comment totals, and story points over time, the only conclusion I can come to is that stories now have more comments on them. These metrics do not show any great change over the last few years.
+After graphing comment score, comment length, comment totals, and story points over time, the only conclusion I can draw to is that the number of comments per story have increased over time.
 
+![# of Comments per Story versus Time](https://github.com/derferman/hn-comments/raw/master/comments.png)
 
+## Experiment Status
 
-
+**FAILED:** After getting all that comment data, I didn't find anything cool. Sigh
 
 
