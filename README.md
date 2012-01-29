@@ -21,7 +21,8 @@ Earlier stories have fewer comments. These comments are of higher quality.
 
 ## Conclusion
 
-Was I right? Nope, not according to R
+After graphing comment score, comment length, comment totals, and story points over time, the only conclusion I can come to is that stories now have more comments on them. These metrics do not show any great change over the last few years.
+
 
 
 
