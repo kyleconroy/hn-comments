@@ -7,6 +7,7 @@ import datetime
 import re
 import os
 import json
+import csv
 
 DOWNLOAD_DATE = datetime.datetime(2012, 1, 28)
 
@@ -78,13 +79,60 @@ def transform_frontpages():
     json.dump(frontpages, open("data/frontpages.json", "w"))
 
 
+def parse_comment(td):
+    comment = {
+        "id": None,
+        "author": None,
+        "url": None,
+        "body": None,
+        "score": 1,
+        "timestamp": None,
+    }
+
+    try:
+        match = re.search("(\d+) days ago", td.text_content())
+        if match:
+            days_ago = int(match.group(1)) 
+            submitted = DOWNLOAD_DATE - datetime.timedelta(days=days_ago)
+            comment["timestamp"] = time.mktime(submitted.timetuple())
+    except IndexError:
+        pass
+
+    try:
+        fragment = td.cssselect("span.comhead a")[1].attrib["href"]
+        comment["id"] = int(fragment.split("id=")[1])
+        comment["link"] = "http://news.ycombinator.com/" + fragment
+    except IndexError:
+        pass
+
+    try:
+        color = td.cssselect("span.comment font")[0].attrib["color"]
+        worst = int("0xe6e6e6", 0)
+        comment["score"] = 1 - int(color.replace("#", "0x"), 0) / float(worst)
+    except IndexError:
+        pass
+
+    try:
+        comment["author"] = td.cssselect("span.comhead a")[0].text_content()
+    except IndexError:
+        pass
+
+    try:
+        comment["body"] = td.cssselect("span.comment")[0].text_content()
+    except IndexError:
+        pass
+
+    return comment
+
+
 def parse_comments(parsed):
-    return []
+    return [parse_comment(td) for td in parsed.cssselect("td.default")]
 
 
 def parse_story(parsed):
     story = {
         "title": None,
+        "url": None,
         "dead": False,
         "points": 0,
         "submitter": None,
@@ -132,6 +180,9 @@ def parse_story(parsed):
     return story
 
 def transform_stories():
+    if not os.path.isdir("data/stories"):
+        os.makedirs("data/stories")
+
     for story in os.listdir("comments/raw"):
         if story.startswith("."):
             continue  # Damn you .DS_Store
@@ -140,27 +191,161 @@ def transform_stories():
         story_path = os.path.join("comments/raw", story)
         #puts("Parsing story {}".format(story))
 
+        json_path = "data/stories/{}.json".format(story_id) 
+
+        if os.path.exists(json_path):
+            puts("Already created {}".format(json_path))
+            continue
+
         try:
             parsed = html.fromstring(open(story_path).read())
         except:
             continue  # Couldn't parse the html
 
-        import pprint
         story = parse_story(parsed)
-        pprint.pprint(story)
+        story["id"] = int(story_id)
+        json.dump(story, open("data/stories/{}.json".format(story_id), "w"))
+        puts("Created {}".format(json_path))
 
-        
 
 @task
 def transform():
     transform_frontpages()
     transform_stories()
 
+    
+def analyze_comment_length():
+    if not os.path.isdir("data/graphs"):
+        os.makedirs("data/graphs")
+
+    puts("Generating comment length data")
+
+    writer = csv.writer(open("data/graphs/number_comments.csv", "w"))
+
+    for story_file in os.listdir("data/stories"):
+        if story_file.startswith("."):
+            continue  # Damn you .DS_Store
+
+        story = json.load(open(os.path.join("data/stories", story_file)))
+
+        if story["timestamp"]:
+            writer.writerow([story["timestamp"], len(story["comments"])])
+
+
+def analyze_story_points():
+    if not os.path.isdir("data/graphs"):
+        os.makedirs("data/graphs")
+
+    puts("Generating stories points data")
+
+    writer = csv.writer(open("data/graphs/story_points.csv", "w"))
+
+    for story_file in os.listdir("data/stories"):
+        if story_file.startswith("."):
+            continue  # Damn you .DS_Store
+
+        story = json.load(open(os.path.join("data/stories", story_file)))
+        writer.writerow([story["timestamp"], story["points"]])
+
+
+def analyze_comment_score_versus_length():
+    if not os.path.isdir("data/graphs"):
+        os.makedirs("data/graphs")
+
+    puts("Generating comment score versus length data")
+
+    writer = csv.writer(open("data/graphs/comment_length_vs_score.csv", "w"))
+
+    for story_file in os.listdir("data/stories"):
+        if story_file.startswith("."):
+            continue  # Damn you .DS_Store
+
+        story = json.load(open(os.path.join("data/stories", story_file)))
+
+        for comment in story["comments"]:
+            if comment["body"]:
+                writer.writerow([len(comment["body"]), comment["score"]])
+
+def analyze_comment_case():
+    scores = []
+    lowercase = []
+
+    for story_file in os.listdir("data/stories"):
+        if story_file.startswith("."):
+            continue  # Damn you .DS_Store
+
+        story = json.load(open(os.path.join("data/stories", story_file)))
+
+        for comment in story["comments"]:
+            scores.append(comment["score"])
+            if comment.get("body", None) and comment["body"] == comment["body"].lower():
+                lowercase.append(comment["score"])
+
+    all_avg = sum(scores) / float(len(scores))
+    puts("Total number of all comments: {}".format(len(scores)))
+    puts("Average score for all comments: {}".format(all_avg))
+
+    lowercase_avg = sum(lowercase) / float(len(lowercase))
+    puts("Total number of lowercase comments: {}".format(len(lowercase)))
+    puts("Average score for lowercase comments: {}".format(lowercase_avg))
+
+
+def analyze_worst_comments():
+    scores = []
+
+    for story_file in os.listdir("data/stories"):
+        if story_file.startswith("."):
+            continue  # Damn you .DS_Store
+
+        story = json.load(open(os.path.join("data/stories", story_file)))
+
+        for comment in story["comments"]:
+            scores.append((comment["score"], comment)) 
+
+    scores.sort()
+
+    for score, body in scores[:10]:
+        print score
+        print comment
+        print 
+
+
+def analyze_comment_numbers():
+    if not os.path.isdir("data/graphs"):
+        os.makedirs("data/graphs")
+
+    puts("Generating comment totals data")
+
+    writer = csv.writer(open("data/graphs/comment_length.csv", "w"))
+
+    for story_file in os.listdir("data/stories"):
+        if story_file.startswith("."):
+            continue  # Damn you .DS_Store
+
+        story = json.load(open(os.path.join("data/stories", story_file)))
+
+        for comment in story["comments"]:
+            if comment["timestamp"] and comment["body"]:
+                writer.writerow([comment["timestamp"], len(comment["body"])])
+
+@task
+def report():
+    #analyze_comment_case()
+    analyze_worst_comments()
+
+
+@task
+def analyze():
+    analyze_comment_length()
+    analyze_comment_numbers()
+    analyze_story_points()
+    analyze_comment_score_versus_length()
 
 @task
 def download():
     if not os.path.isdir("comments/raw"):
         os.makedirs("comments/raw")
+
     hn_dir = os.path.expanduser("~/clocktower/news.ycombinator.com")
     for frontpage in os.listdir(hn_dir):
 

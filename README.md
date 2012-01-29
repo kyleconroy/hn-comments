@@ -21,10 +21,7 @@ Earlier stories have fewer comments. These comments are of higher quality.
 
 ## Conclusion
 
-Was I right?
-
-    fab graph
-
+Was I right? Nope, not according to R
 
 
 
